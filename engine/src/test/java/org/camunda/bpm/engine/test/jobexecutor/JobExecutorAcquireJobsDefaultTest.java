@@ -1,5 +1,5 @@
 /*
- * Copyright © 2013-2018 camunda services GmbH and various authors (info@camunda.com)
+ * Copyright © 2013-2019 camunda services GmbH and various authors (info@camunda.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,15 @@
  */
 package org.camunda.bpm.engine.test.jobexecutor;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-
+import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.runtime.Job;
 import org.camunda.bpm.engine.test.Deployment;
 import org.junit.Test;
+
+import static junit.framework.TestCase.assertNull;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 
 public class JobExecutorAcquireJobsDefaultTest extends AbstractJobExecutorAcquireJobsTest {
 
@@ -33,10 +36,39 @@ public class JobExecutorAcquireJobsDefaultTest extends AbstractJobExecutorAcquir
   @Test
   @Deployment(resources = "org/camunda/bpm/engine/test/jobexecutor/simpleAsyncProcess.bpmn20.xml")
   public void testMessageJobHasNoDueDateSet() {
-    runtimeService.startProcessInstanceByKey("simpleAsyncProcess");
+    // given
+    rule.getProcessEngineConfiguration().setEnsureJobDueDateNotNull(false);
 
-    Job job = managementService.createJobQuery().singleResult();
+    // when
+    String processInstanceId =
+      runtimeService.startProcessInstanceByKey("simpleAsyncProcess").getId();
+
+    Job job = managementService.createJobQuery()
+      .processInstanceId(processInstanceId)
+      .singleResult();
+
+    // then
     assertNull(job.getDuedate());
+
+    rule.getProcessEngineConfiguration().setEnsureJobDueDateNotNull(true);
   }
 
+  @Test
+  @Deployment(resources = "org/camunda/bpm/engine/test/jobexecutor/simpleAsyncProcess.bpmn20.xml")
+  public void testJobHasDueDateSet() {
+    // assume
+    assertEquals(rule.getProcessEngineConfiguration().isEnsureJobDueDateNotNull(), true);
+
+    // when
+    String processInstanceId =
+      runtimeService.startProcessInstanceByKey("simpleAsyncProcess").getId();
+
+    Job job = managementService.createJobQuery()
+      .processInstanceId(processInstanceId)
+      .singleResult();
+
+    // then
+    assertNotNull(job.getDuedate());
+    assertEquals(job.getDuedate(), ClockUtil.getCurrentTime());
+  }
 }
